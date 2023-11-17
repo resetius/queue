@@ -109,6 +109,7 @@ public:
         pos = (pos+len)%capacity;
 
         size -= len;
+        pthread_cond_signal(&header->cond);
     }
 };
 
@@ -132,6 +133,7 @@ public:
         pos = (pos+len)%capacity;
         
         size += len;
+        pthread_cond_signal(&header->cond);
     }
 };
 
