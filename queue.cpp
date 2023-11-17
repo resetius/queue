@@ -9,26 +9,24 @@
 
 struct QueueHeader {
     std::atomic_int size;
-    std::atomic_int free_size;
     char mem[0];
 };
 
 class QueueFile {
 public:
-    QueueFile(const char* file, int capacity, bool attach)
-        : fd(open_file(file, capacity, attach))
-        , capacity(capacity)
-        , data((QueueHeader*)mmap(nullptr, capacity + sizeof(QueueHeader), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0))
+    QueueFile(const char* file, int cap, bool attach)
+        : fd(open_file(file, cap, attach))
+        , cap(cap)
+        , data((QueueHeader*)mmap(nullptr, cap + sizeof(QueueHeader), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0))
     {
         if (!attach) {
             data->size = 0;
-            data->free_size = capacity;
         }
     }
 
     ~QueueFile()
     {
-        munmap(data, capacity + sizeof(QueueHeader));
+        munmap(data, cap + sizeof(QueueHeader));
         close(fd);
     }
 
@@ -36,11 +34,15 @@ public:
         return data;
     }
 
+    int capacity() {
+        return cap;
+    }
+
 private:
-    int open_file(const char* file, int capacity, bool attach) {
+    int open_file(const char* file, int cap, bool attach) {
         int fd = open(file, O_RDWR | O_CREAT, 0666);
         if (!attach) {
-            lseek(fd, capacity + sizeof(QueueHeader), SEEK_SET);
+            lseek(fd, cap + sizeof(QueueHeader), SEEK_SET);
             write(fd, "", 1);
             lseek(fd, 0, SEEK_SET);
         }
@@ -48,69 +50,70 @@ private:
     }
 
     int fd;
-    int capacity;
+    int cap;
     QueueHeader* data;
 };
 
-class Queue {
-public:
-    Queue(const char* file, int capacity, bool attach)
-        : qfile(QueueFile(file, capacity, attach))
-        , capacity(capacity)
-        , size(qfile.header()->size)
-        , free_size(qfile.header()->free_size)
-        , mem(qfile.header()->mem)
-        , w(0)
-        , r(0)
+class QueueStream {
+protected:
+    QueueStream(QueueFile& qf)
+        : capacity(qf.capacity())
+        , size(qf.header()->size)
+        , mem(qf.header()->mem)
+        , pos(0)
     { }
 
-    ~Queue()
-    {
-    }
+    int capacity;
+    std::atomic_int& size;
+    char* mem;
+    int pos;
+};
 
-    void push(const char* buf, int len) {
-        while (free_size < len) {
-            ;
-        }
-
-        int first = std::min(len, capacity-w);
-        memcpy(mem+w, buf, first);
-        memcpy(mem, buf+first, std::max(0, len-first)); 
-        w = (w+len)%capacity;
-        
-        free_size -= len;
-        size += len;
-    }
+class QueueReader: public QueueStream {
+public:
+    QueueReader(QueueFile& qf): QueueStream(qf)
+    { }
 
     void pop(char* buf, int len) {
         while (size < len) {
             ;
         }
 
-        int first = std::min(len, capacity-r);
-        memcpy(buf, mem+r, first);
+        int first = std::min(len, capacity-pos);
+        memcpy(buf, mem+pos, first);
         memcpy(buf+first, mem, std::max(0, len-first));
-        r = (r+len)%capacity;
+        pos = (pos+len)%capacity;
 
-        free_size += len;
         size -= len;
     }
+};
 
-private:
-    QueueFile qfile;
-    int capacity;
-    std::atomic_int& size;
-    std::atomic_int& free_size;
-    char* mem;
-    int w;
-    int r;
+class QueueWriter: public QueueStream {
+public:
+    QueueWriter(QueueFile& qf): QueueStream(qf)
+    { }
+
+    void push(const char* buf, int len) {
+        while (capacity - size < len) {
+            ;
+        }
+
+        int first = std::min(len, capacity-pos);
+        memcpy(mem+pos, buf, first);
+        memcpy(mem, buf+first, std::max(0, len-first)); 
+        pos = (pos+len)%capacity;
+        
+        size += len;
+    }
 };
 
 int main() {
     char buf[1024];
-    Queue q("q", 1024, false);
-    q.push("abc", 4);
-    q.pop(buf, 4);
+    QueueFile qf("q", 1024, false);
+    QueueReader qr(qf);
+    QueueWriter qw(qf);
+    qw.push("abc", 4);
+    qr.pop(buf, 4);
 
     printf("%s\n", buf);
     assert(memcmp(buf, "abc", 4) == 0);
