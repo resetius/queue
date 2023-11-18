@@ -1,7 +1,9 @@
+#include <stdexcept>
 #include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
 #include <array>
+#include <system_error>
 
 #include "queue.h"
 
@@ -76,6 +78,64 @@ private:
     QueueWriter<Base> writer;
 };
 
+class PipedInputStream: public InputStream {
+public:
+    PipedInputStream(int fd)
+        : fd(fd)
+    { }
+
+    void read(void* data, int len) override {
+        char* p = (char*)data;
+        while (len != 0) {
+            auto r = ::read(fd, p, len);
+            if (r == -1) {
+                if (errno == EAGAIN) {
+                    continue;
+                } else {
+                    throw std::system_error(errno, std::generic_category(), "read");
+                }
+            }
+            if (r == 0) {
+                throw std::runtime_error("end of stream");
+            }
+            p += r;
+            len -= r;
+        }
+    }
+
+private:
+    int fd;
+};
+
+class PipedOutputStream: public OutputStream {
+public:
+    PipedOutputStream(int fd)
+        : fd(fd)
+    { }
+
+    void write(const void* data, int len) override {
+        const char* p = (const char*)data;
+        while (len != 0) {
+            auto r = ::write(fd, p, len);
+            if (r == -1) {
+                if (errno == EAGAIN) {
+                    continue;
+                } else {
+                    throw std::system_error(errno, std::generic_category(), "write");
+                }
+            }
+            if (r == 0) {
+                throw std::runtime_error("end of stream");
+            }
+            p += r;
+            len -= r;
+        }
+    }
+
+private:
+    int fd;
+};
+
 template<size_t size>
 void client(OutputStream& output) {
     Message<size> m;
@@ -122,6 +182,24 @@ void spawn() {
     }
 }
 
+template<size_t size>
+void spawn_pipe() {
+    int p[2];
+    pipe(p);
+    pid_t child;
+    if ((child = fork()) == 0) {
+        // child
+        PipedOutputStream output(p[1]);
+        client<size>(output);
+    } else {
+        // parent
+        PipedInputStream input(p[0]);
+        printf("Pipe %lu: ", size);
+        server<size>(input);
+        kill(child, 9);
+    }
+}
+
 int main() {
     spawn<1024, QueueBaseLockFree>();
     spawn<2048, QueueBaseLockFree>();
@@ -132,5 +210,11 @@ int main() {
     spawn<2048, QueueBase>();
     spawn<8192, QueueBase>();
     spawn<32784, QueueBase>();
+
+    spawn_pipe<1024>();
+    spawn_pipe<2048>();
+    spawn_pipe<8192>();
+    spawn_pipe<32784>();
+
     return 0;
 }
