@@ -39,15 +39,18 @@ void server(InputStream& input) {
     Message<size> m;
     uint64_t bytes = 0;
     uint64_t messages = 0;
+    uint64_t avglat = 0;
     auto t0 = now();
     for (int i = 0; i < 10000000; i++) {
         input.read(&m, sizeof(m));
+        auto t2 = now();
         bytes += size;
         messages ++;
+        avglat += t2-m.t;
     }
     auto t1 = now();
     double seconds = (t1-t0+1)/1000000000.0;
-    printf("%f, %f\n", bytes/1024/1024/seconds, messages/seconds);
+    printf("%0.2f, %0.2f, %0.2f\n", bytes/1024/1024/seconds, messages/seconds, (double)avglat / messages);
 }
 
 template<size_t size, typename Base>
@@ -91,18 +94,24 @@ void spawn_pipe() {
 int main() {
     spawn<1024, QueueBaseLockFree>();
     spawn<2048, QueueBaseLockFree>();
+    spawn<4096, QueueBaseLockFree>();
     spawn<8192, QueueBaseLockFree>();
-    spawn<32784, QueueBaseLockFree>();
+    spawn<16384, QueueBaseLockFree>();
+    spawn<32768, QueueBaseLockFree>();
 
     spawn<1024, QueueBase>();
     spawn<2048, QueueBase>();
+    spawn<4096, QueueBase>();
     spawn<8192, QueueBase>();
-    spawn<32784, QueueBase>();
+    spawn<16384, QueueBase>();
+    spawn<32768, QueueBase>();
 
     spawn_pipe<1024>();
     spawn_pipe<2048>();
+    spawn_pipe<4096>();
     spawn_pipe<8192>();
-    spawn_pipe<32784>();
+    spawn_pipe<16384>();
+    spawn_pipe<32768>();
 
     return 0;
 }
