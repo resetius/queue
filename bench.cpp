@@ -76,7 +76,9 @@ void spawn() {
 template<size_t size>
 void spawn_pipe() {
     int p[2];
-    pipe(p);
+    if (pipe(p) == -1) {
+        throw std::system_error(errno, std::generic_category(), "pipe");
+    }
     pid_t child;
     if ((child = fork()) == 0) {
         // child
