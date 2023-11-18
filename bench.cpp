@@ -32,6 +32,7 @@ void client(OutputStream& output) {
         m.init();
         output.write(&m, sizeof(m));
     }
+    exit(0);
 }
 
 template<size_t size>
@@ -69,7 +70,6 @@ void spawn() {
         MappedInputStream<Base> input(qr);
         printf("%s %lu: ", typeid(Base).name(), size);
         server<size>(input);
-        kill(child, 9);
     }
 }
 
