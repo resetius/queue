@@ -61,7 +61,6 @@ void test_push_pop_fork(void** state) {
 
 template<typename Base>
 void test_push_pop_fork_attach(void** state) {
-    char buf[1024];
     {
         QueueFile<Base>::create("test_push_pop_fork_attach", 1024);
     }
@@ -73,9 +72,37 @@ void test_push_pop_fork_attach(void** state) {
         qw.push("abc", 4);
         exit(0);
     } else {
+        char buf[1024];
         QueueReader<Base> qr(qf);
         qr.pop(buf, 4);
         assert_string_equal(buf, "abc");
+    }
+}
+
+template<typename Base>
+void test_push_pop_fork_read_fixed(void** state) {
+    char buf[1024];
+    {
+        QueueFile<Base>::create("test_push_pop_fork_read_fixed", 1024);
+    }
+    int fd = ::open("test_push_pop_fork_read_fixed", O_RDWR);
+    pid_t pid = fork();
+    auto qf = QueueFile<Base>::open(fd);
+    if (pid == 0) {
+        QueueWriter<Base> qw(qf);
+        for (int i = 0; i < 100; i++) {
+            snprintf(buf, sizeof(buf), "%04d", i);
+            qw.push(buf, sizeof(buf));
+        }
+        exit(0);
+    } else {
+        QueueReader<Base> qr(qf);
+        char rbuf[1024];
+        for (int i = 0; i < 100; i++) {
+            snprintf(buf, sizeof(buf), "%04d", i);
+            qr.pop(rbuf, sizeof(rbuf));
+            assert_true(memcmp(buf, rbuf, sizeof(buf)) == 0);
+        }
     }
 }
 
@@ -89,6 +116,8 @@ int main() {
         cmocka_unit_test(test_push_pop_attach<QueueBase>),
         cmocka_unit_test(test_push_pop_fork_attach<QueueBaseLockFree>),
         cmocka_unit_test(test_push_pop_fork_attach<QueueBase>),
+        cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBaseLockFree>),
+        cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBase>),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
