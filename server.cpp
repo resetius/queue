@@ -1,13 +1,5 @@
-#include <algorithm>
-#include <string.h>
-#include <assert.h>
-#include <atomic>
-
-#include <fcntl.h>
-#include <unistd.h>
-#include <pthread.h>
-
-#include <sys/mman.h>
+#include <iostream>
+#include <string_view>
 
 #include "queue.h"
 
@@ -16,10 +8,8 @@ int main() {
     auto qf = QueueFile<QueueBaseLockFree>::create("server.q", 1024*1024);
     QueueReader<QueueBaseLockFree> qr(qf);
     while (true) {
-        // printf("On pop\n");
-        qr.pop(buf, 1024);
-        write(1, buf, 1024);
-        // printf("Pop ok\n");
+        int len = qr.pop_any(buf, sizeof(buf));
+        std::cerr << std::string_view(buf, len);
     }
 
     return 0;

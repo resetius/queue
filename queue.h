@@ -173,6 +173,13 @@ public:
 
         this->header->inc_size(-len);
     }
+
+    int pop_any(char* buf, int len) {
+        this->header->wait_read(1);
+        len = std::min(this->header->size.load(), len);
+        pop(buf, len);
+        return len;
+    }
 };
 
 template<typename Base>
