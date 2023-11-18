@@ -18,10 +18,15 @@ extern "C" {
 #include <cmocka.h>
 }
 
+std::string get_file_name(const std::string& prefix, const std::string& suffix) {
+    return prefix + "_" + suffix;
+}
+
 template<typename Base>
 void test_push_pop(void** state) {
+    auto fn = get_file_name("test_push_pop", typeid(Base).name());
     char buf[1024];
-    auto qf = QueueFile<Base>::create("test_push_pop", 1024);
+    auto qf = QueueFile<Base>::create(fn.c_str(), 1024);
     QueueReader<Base> qr(qf);
     QueueWriter<Base> qw(qf);
     qw.push("abc", 4);
@@ -31,11 +36,12 @@ void test_push_pop(void** state) {
 
 template<typename Base>
 void test_push_pop_attach(void** state) {
+    auto fn = get_file_name("test_push_pop_attach", typeid(Base).name());
     char buf[1024];
     {
-        QueueFile<Base>::create("test_push_pop_attach", 1024);
+        QueueFile<Base>::create(fn.c_str(), 1024);
     }
-    auto qf = QueueFile<Base>::open("test_push_pop_attach");
+    auto qf = QueueFile<Base>::open(fn.c_str());
     QueueReader<Base> qr(qf);
     QueueWriter<Base> qw(qf);
     qw.push("abc", 4);
@@ -45,8 +51,9 @@ void test_push_pop_attach(void** state) {
 
 template<typename Base>
 void test_push_pop_fork(void** state) {
+    auto fn = get_file_name("test_push_pop_fork", typeid(Base).name());
     char buf[1024];
-    auto qf = QueueFile<Base>::create("test_push_pop_fork", 1024);
+    auto qf = QueueFile<Base>::create(fn.c_str(), 1024);
     pid_t pid = fork();
     if (pid == 0) {
         QueueWriter<Base> qw(qf);
@@ -61,10 +68,11 @@ void test_push_pop_fork(void** state) {
 
 template<typename Base>
 void test_push_pop_fork_attach(void** state) {
+    auto fn = get_file_name("test_push_pop_fork_attach", typeid(Base).name());
     {
-        QueueFile<Base>::create("test_push_pop_fork_attach", 1024);
+        QueueFile<Base>::create(fn.c_str(), 1024);
     }
-    int fd = ::open("test_push_pop_fork_attach", O_RDWR);
+    int fd = ::open(fn.c_str(), O_RDWR);
     pid_t pid = fork();
     auto qf = QueueFile<Base>::open(fd);
     if (pid == 0) {
@@ -81,11 +89,12 @@ void test_push_pop_fork_attach(void** state) {
 
 template<typename Base>
 void test_push_pop_fork_read_fixed(void** state) {
+    auto fn = get_file_name("test_push_pop_fork_read_fixed", typeid(Base).name());
     char buf[1024];
     {
-        QueueFile<Base>::create("test_push_pop_fork_read_fixed", 1024);
+        QueueFile<Base>::create(fn.c_str(), 1024);
     }
-    int fd = ::open("test_push_pop_fork_read_fixed", O_RDWR);
+    int fd = ::open(fn.c_str(), O_RDWR);
     pid_t pid = fork();
     auto qf = QueueFile<Base>::open(fd);
     if (pid == 0) {
