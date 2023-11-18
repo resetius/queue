@@ -13,8 +13,8 @@
 
 int main() {
     char buf[1024];
-    QueueFile qf("server.q", 1024*1024, true);
-    QueueWriter qw(qf);
+    auto qf = QueueFile<QueueBaseLockFree>::open("server.q");
+    QueueWriter<QueueBaseLockFree> qw(qf);
 
     while (1) {
         read(0, buf, sizeof(buf));

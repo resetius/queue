@@ -13,8 +13,8 @@
 
 int main() {
     char buf[1024];
-    QueueFile qf("server.q", 1024*1024, false);
-    QueueReader qr(qf);
+    auto qf = QueueFile<QueueBaseLockFree>::create("server.q", 1024*1024);
+    QueueReader<QueueBaseLockFree> qr(qf);
     while (true) {
         // printf("On pop\n");
         qr.pop(buf, 1024);
