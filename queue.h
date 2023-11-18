@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/fcntl.h>
 #include <system_error>
+#include <thread>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -32,19 +33,19 @@ struct QueueBaseLockFree {
     }
 
     void wait_read(int len) {
-        while (size < len) {
-            ;
+        while (size.load(std::memory_order_relaxed) < len) {
+            std::this_thread::yield();
         }
     }
 
     void wait_write(int len) {
-        while (capacity - size < len) {
-            ;
+        while (capacity - size.load(std::memory_order_relaxed) < len) {
+            std::this_thread::yield();
         }
     }
 
     void inc_size(int len) {
-        size += len;
+        size.fetch_add(len, std::memory_order_relaxed);
     }
 };
 
@@ -76,7 +77,7 @@ struct QueueBase {
 
     void wait_read(int len) {
         pthread_mutex_lock(&mut);
-        while (size < len) {
+        while (size.load(std::memory_order_acquire) < len) {
             pthread_cond_wait(&cond, &mut);
         }
         pthread_mutex_unlock(&mut);
@@ -84,7 +85,7 @@ struct QueueBase {
 
     void wait_write(int len) {
         pthread_mutex_lock(&mut);
-        while (capacity - size < len) {
+        while (capacity - size.load(std::memory_order_acquire) < len) {
             pthread_cond_wait(&cond, &mut);
         }
         pthread_mutex_unlock(&mut);
@@ -92,7 +93,7 @@ struct QueueBase {
 
     void inc_size(int len) {
         pthread_mutex_lock(&mut);
-        size += len;
+        size.fetch_add(len, std::memory_order_release);
         pthread_cond_signal(&cond);
         pthread_mutex_unlock(&mut);
     }
