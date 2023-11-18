@@ -81,7 +81,7 @@ struct QueueBase {
         pthread_mutex_unlock(&mut);
     }
 
-    void wait_write(int capacity, int len) {
+    void wait_write(int len) {
         pthread_mutex_lock(&mut);
         while (capacity - size < len) {
             pthread_cond_wait(&cond, &mut);
@@ -143,16 +143,21 @@ private:
 
 template<typename Base>
 class QueueStream {
+public:
+    int capacity() {
+        return cap;
+    }
+
 protected:
     QueueStream(QueueFile<Base>& qf)
         : header(qf.header())
-        , capacity(header->capacity)
+        , cap(header->capacity)
         , mem(header->mem)
         , pos(0)
     { }
 
     Base* header;
-    int capacity;
+    int cap;
     char* mem;
     int pos;
 };
@@ -166,10 +171,10 @@ public:
     void pop(char* buf, int len) {
         this->header->wait_read(len);
 
-        int first = std::min(len, this->capacity-this->pos);
+        int first = std::min(len, this->cap-this->pos);
         memcpy(buf, this->mem+this->pos, first);
         memcpy(buf+first, this->mem, std::max(0, len-first));
-        this->pos = (this->pos+len)%this->capacity;
+        this->pos = (this->pos+len)%this->cap;
 
         this->header->inc_size(-len);
     }
@@ -191,10 +196,10 @@ public:
     void push(const char* buf, int len) {
         this->header->wait_write(len);
 
-        int first = std::min(len, this->capacity-this->pos);
+        int first = std::min(len, this->cap-this->pos);
         memcpy(this->mem+this->pos, buf, first);
         memcpy(this->mem, buf+first, std::max(0, len-first)); 
-        this->pos = (this->pos+len)%this->capacity;
+        this->pos = (this->pos+len)%this->cap;
 
         this->header->inc_size(len);
     }
