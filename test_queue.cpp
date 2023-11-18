@@ -90,7 +90,7 @@ void test_push_pop_fork_read_fixed(void** state) {
     auto qf = QueueFile<Base>::open(fd);
     if (pid == 0) {
         QueueWriter<Base> qw(qf);
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             snprintf(buf, sizeof(buf), "%04d", i);
             qw.push(buf, sizeof(buf));
         }
@@ -98,7 +98,7 @@ void test_push_pop_fork_read_fixed(void** state) {
     } else {
         QueueReader<Base> qr(qf);
         char rbuf[1024];
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             snprintf(buf, sizeof(buf), "%04d", i);
             qr.pop(rbuf, sizeof(rbuf));
             assert_true(memcmp(buf, rbuf, sizeof(buf)) == 0);
