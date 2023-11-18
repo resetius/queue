@@ -1,11 +1,9 @@
-#include <stdexcept>
 #include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
 #include <array>
-#include <system_error>
 
-#include "queue.h"
+#include "stream.h"
 
 uint64_t now() {
     uint64_t r;
@@ -24,116 +22,6 @@ struct Message {
     void init() {
         t = now();
     }
-};
-
-struct OutputStream {
-    virtual ~OutputStream() = default;
-    virtual void write(const void* data, int len) = 0;
-};
-
-struct InputStream {
-    virtual ~InputStream() = default;
-    virtual void read(void* data, int len) = 0;
-};
-
-template<typename Base>
-class MappedInputStream: public InputStream {
-public:
-    MappedInputStream(QueueReader<Base>& reader)
-        : reader(reader)
-    { }
-
-    void read(void* data, int len) override {
-        char* p = (char*)data;
-        while (len != 0) {
-            auto chunk_size = std::min(len, reader.capacity() / 2);
-            reader.pop(p, chunk_size);
-            p += chunk_size;
-            len -= chunk_size;
-        }
-    }
-
-private:
-    QueueReader<Base> reader;
-};
-
-template<typename Base>
-class MappedOutputStream: public OutputStream {
-public:
-    MappedOutputStream(QueueWriter<Base>& writer)
-        : writer(writer)
-    { }
-
-    void write(const void* data, int len) override {
-        const char* p = (const char*)data;
-        while (len != 0) {
-            auto chunk_size = std::min(len, writer.capacity() / 2);
-            writer.push(p, chunk_size);
-            p += chunk_size;
-            len -= chunk_size;
-        }
-    }
-
-private:
-    QueueWriter<Base> writer;
-};
-
-class PipedInputStream: public InputStream {
-public:
-    PipedInputStream(int fd)
-        : fd(fd)
-    { }
-
-    void read(void* data, int len) override {
-        char* p = (char*)data;
-        while (len != 0) {
-            auto r = ::read(fd, p, len);
-            if (r == -1) {
-                if (errno == EAGAIN) {
-                    continue;
-                } else {
-                    throw std::system_error(errno, std::generic_category(), "read");
-                }
-            }
-            if (r == 0) {
-                throw std::runtime_error("end of stream");
-            }
-            p += r;
-            len -= r;
-        }
-    }
-
-private:
-    int fd;
-};
-
-class PipedOutputStream: public OutputStream {
-public:
-    PipedOutputStream(int fd)
-        : fd(fd)
-    { }
-
-    void write(const void* data, int len) override {
-        const char* p = (const char*)data;
-        while (len != 0) {
-            auto r = ::write(fd, p, len);
-            if (r == -1) {
-                if (errno == EAGAIN) {
-                    continue;
-                } else {
-                    throw std::system_error(errno, std::generic_category(), "write");
-                }
-            }
-            if (r == 0) {
-                throw std::runtime_error("end of stream");
-            }
-            p += r;
-            len -= r;
-        }
-    }
-
-private:
-    int fd;
 };
 
 template<size_t size>
