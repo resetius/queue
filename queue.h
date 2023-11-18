@@ -95,7 +95,7 @@ template<typename Base>
 class QueueFile {
 public:
     static QueueFile create(const char* file, int capacity) {
-        int fd = ::open(file, O_RDWR | O_CREAT, 0666);
+        int fd = ::open(file, O_RDWR | O_CREAT | O_TRUNC, 0666);
         if (fd == -1) {
             throw std::system_error(errno, std::generic_category(), "open");
         }
