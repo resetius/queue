@@ -14,14 +14,6 @@
 
 #include <sys/mman.h>
 
-struct QueueHeader {
-    int capacity;
-    std::atomic_int size;
-    pthread_cond_t cond;
-    pthread_mutex_t mut;
-    char mem[0];
-};
-
 struct QueueBaseLockFree {
     int capacity;
     std::atomic_int size;
