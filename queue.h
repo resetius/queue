@@ -7,6 +7,7 @@
 
 #include <fcntl.h>
 #include <sys/fcntl.h>
+#include <system_error>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -102,9 +103,18 @@ class QueueFile {
 public:
     static QueueFile create(const char* file, int capacity) {
         int fd = ::open(file, O_RDWR | O_CREAT, 0666);
+        if (fd == -1) {
+            throw std::system_error(errno, std::generic_category(), "open");
+        }
         int size = capacity + sizeof(Base);
-        ftruncate(fd, size);
+        if (ftruncate(fd, size) == -1) {
+            close(fd);
+            throw std::system_error(errno, std::generic_category(), "ftruncate");
+        }
         Base* header = static_cast<Base*>(mmap(nullptr, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0));
+        if (header == MAP_FAILED) {
+            throw std::system_error(errno, std::generic_category(), "mmap");
+        }
         header->init(capacity);
         return QueueFile(header, fd);
     }
@@ -113,11 +123,17 @@ public:
         int size = lseek(fd, 0, SEEK_END);
         lseek(fd, 0, SEEK_SET);
         Base* header = static_cast<Base*>(mmap(nullptr, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0));
+        if (header == MAP_FAILED) {
+            throw std::system_error(errno, std::generic_category(), "mmap");
+        }
         return QueueFile(header, fd);
     }
 
     static QueueFile open(const char* file) {
         int fd = ::open(file, O_RDWR);
+        if (fd == -1) {
+            throw std::system_error(errno, std::generic_category(), "open");
+        }
         return open(fd);
     }
 
