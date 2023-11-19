@@ -27,10 +27,11 @@ struct Message {
 template<size_t size>
 void client(OutputStream& output) {
     Message<size> m;
-
-    for (int i = 0; i < 10000000; i++) {
+    uint64_t total_size = 0;
+    while (total_size < 10*1024*1024*1024LL) {
         m.init();
         output.write(&m, sizeof(m));
+        total_size += sizeof(m);
     }
     exit(0);
 }
@@ -42,12 +43,14 @@ void server(InputStream& input) {
     uint64_t messages = 0;
     uint64_t avglat = 0;
     auto t0 = now();
-    for (int i = 0; i < 10000000; i++) {
+    uint64_t total_size = 0;
+    while (total_size < 10*1024*1024*1024LL) {
         input.read(&m, sizeof(m));
         auto t2 = now();
         bytes += size;
         messages ++;
         avglat += t2-m.t;
+        total_size += sizeof(m);
     }
     auto t1 = now();
     double seconds = (t1-t0+1)/1000000000.0;
