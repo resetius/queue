@@ -1,5 +1,7 @@
 #pragma once
 #include <system_error>
+#include <vector>
+#include <string.h>
 #include "queue.h"
 
 struct OutputStream {
@@ -111,3 +113,56 @@ public:
 private:
     int fd;
 };
+
+// naive version of vmsplice
+class VmsplicedOutputStream: public OutputStream {
+public:
+    VmsplicedOutputStream(int fd)
+        : fd(fd)
+        , index(0)
+        , bufs(64)
+    { }
+
+    void write(const void* data, int len) override {
+        const char* p = (const char*)data;
+        while (len != 0) {
+            int chunkSize = std::min(len, 4096);
+            char* buf = acquire();
+            memcpy(buf, p, chunkSize);
+
+            iovec v = {
+                .iov_base = (void*)buf,
+                .iov_len = (size_t)len
+            };
+
+            auto r = ::vmsplice(fd, &v, 1, 0);
+            if (r == -1) {
+                if (errno == EAGAIN) {
+                    continue;
+                } else {
+                    throw std::system_error(errno, std::generic_category(), "vmsplice");
+                }
+            }
+            if (r == 0) {
+                throw std::runtime_error("end of stream");
+            }
+            p += r;
+            len -= r;
+        }
+    }
+
+private:
+    char* acquire() {
+        auto* r = bufs[index].buf;
+        index = (index+1)%bufs.size();
+        return r;
+    }
+
+    struct Buf {
+        char buf[4096];
+    };
+    int index;
+    std::vector<Buf> bufs;
+    int fd;
+};
+

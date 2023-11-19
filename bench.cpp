@@ -93,6 +93,27 @@ void spawn_pipe() {
     }
 }
 
+template<size_t size>
+void spawn_vmsplice() {
+    int p[2];
+    if (pipe(p) == -1) {
+        throw std::system_error(errno, std::generic_category(), "pipe");
+    }
+    pid_t child;
+    if ((child = fork()) == 0) {
+        // child
+        VmsplicedOutputStream output(p[1]);
+        client<size>(output);
+    } else {
+        // parent
+        PipedInputStream input(p[0]);
+        printf("Vmsplice %lu: ", size);
+        server<size>(input);
+        kill(child, 9);
+    }
+}
+
+
 int main() {
     spawn<1024, QueueBaseLockFree>();
     spawn<2048, QueueBaseLockFree>();
@@ -114,6 +135,13 @@ int main() {
     spawn_pipe<8192>();
     spawn_pipe<16384>();
     spawn_pipe<32768>();
+
+    spawn_vmsplice<1024>();
+    spawn_vmsplice<2048>();
+    spawn_vmsplice<4096>();
+    spawn_vmsplice<8192>();
+    spawn_vmsplice<16384>();
+    spawn_vmsplice<32768>();
 
     return 0;
 }
