@@ -176,7 +176,7 @@ int main() {
         cmocka_unit_test(test_push_pop_fork_attach<QueueBase>),
         cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBaseLockFree>),
         cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBase>),
-        //cmocka_unit_test(test_push_pop_fork_read_random<QueueBaseLockFree>),
+        cmocka_unit_test(test_push_pop_fork_read_random<QueueBaseLockFree>),
         cmocka_unit_test(test_push_pop_fork_read_random<QueueBase>),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
