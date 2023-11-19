@@ -123,6 +123,7 @@ public:
         , index(0)
         , bufs(64)
     {
+        fcntl(fd, F_SETPIPE_SZ, bufs.size() / 2 * 4096);
         iovs.reserve(bufs.size());
     }
 
