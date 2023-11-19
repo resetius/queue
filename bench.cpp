@@ -3,6 +3,8 @@
 #include <signal.h>
 #include <array>
 
+#include <sys/wait.h>
+
 #include "stream.h"
 
 uint64_t now() {
@@ -73,6 +75,8 @@ void spawn() {
         MappedInputStream<Base> input(qr);
         printf("%s %lu: ", typeid(Base).name(), size);
         server<size>(input);
+        int r;
+        waitpid(child, &r, 0);
     }
 }
 
@@ -92,7 +96,8 @@ void spawn_pipe() {
         PipedInputStream input(p[0]);
         printf("Pipe %lu: ", size);
         server<size>(input);
-        kill(child, 9);
+        int r;
+        waitpid(child, &r, 0);
     }
 }
 
@@ -113,7 +118,8 @@ void spawn_vmsplice() {
         PipedInputStream input(p[0]);
         printf("Vmsplice %lu: ", size);
         server<size>(input);
-        kill(child, 9);
+        int r;
+        waitpid(child, &r, 0);
     }
 }
 #endif
