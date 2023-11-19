@@ -122,21 +122,15 @@ public:
         : fd(fd)
         , index(0)
         , bufs(64)
-    { }
+    {
+        iovs.reserve(bufs.size());
+    }
 
     void write(const void* data, int len) override {
         const char* p = (const char*)data;
         while (len != 0) {
-            int chunkSize = std::min(len, 4096);
-            char* buf = acquire();
-            memcpy(buf, p, chunkSize);
-
-            iovec v = {
-                .iov_base = (void*)buf,
-                .iov_len = (size_t)chunkSize
-            };
-
-            auto r = ::vmsplice(fd, &v, 1, 0);
+            fill(p, len);
+            auto r = ::vmsplice(fd, &iovs[0], iovs.size(), 0);
             if (r == -1) {
                 if (errno == EAGAIN) {
                     continue;
@@ -159,11 +153,28 @@ private:
         return r;
     }
 
+    void fill(const char* p, int len) {
+        iovs.clear();
+        for (int i = 0; i < bufs.size() / 2 && len > 0; i++) {
+            int chunk_size = std::min(len, 4096);
+            char* buf = acquire();
+            memcpy(buf, p, chunk_size);
+            iovs.emplace_back(iovec {
+                .iov_base = (void*)buf,
+                .iov_len = (size_t)chunk_size
+            });
+            p += len;
+            len -= chunk_size;
+        }
+    }
+
     struct Buf {
         char buf[4096];
     };
     int index;
     std::vector<Buf> bufs;
+    std::vector<iovec> iovs;
     int fd;
 };
 #endif
+
