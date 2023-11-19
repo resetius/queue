@@ -133,7 +133,7 @@ public:
 
             iovec v = {
                 .iov_base = (void*)buf,
-                .iov_len = (size_t)len
+                .iov_len = (size_t)chunkSize
             };
 
             auto r = ::vmsplice(fd, &v, 1, 0);
