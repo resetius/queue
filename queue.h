@@ -43,7 +43,7 @@ struct QueueBaseLockFree {
 
 struct QueueBase {
     int capacity;
-    std::atomic_int size;
+    int size;
     pthread_cond_t cond;
     pthread_mutex_t mut;
     char mem[0];
@@ -64,12 +64,12 @@ struct QueueBase {
         pthread_condattr_init(&cattr);
         pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
         pthread_cond_init(&cond, &cattr);
-        pthread_condattr_destroy(&cattr);        
+        pthread_condattr_destroy(&cattr);
     }
 
     void wait_read(int len) {
         pthread_mutex_lock(&mut);
-        while (size.load(std::memory_order_acquire) < len) {
+        while (size < len) {
             pthread_cond_wait(&cond, &mut);
         }
         pthread_mutex_unlock(&mut);
@@ -77,7 +77,7 @@ struct QueueBase {
 
     void wait_write(int len) {
         pthread_mutex_lock(&mut);
-        while (capacity - size.load(std::memory_order_acquire) < len) {
+        while (capacity - size < len) {
             pthread_cond_wait(&cond, &mut);
         }
         pthread_mutex_unlock(&mut);
@@ -85,7 +85,7 @@ struct QueueBase {
 
     void inc_size(int len) {
         pthread_mutex_lock(&mut);
-        size.fetch_add(len, std::memory_order_release);
+        size += len;
         pthread_cond_signal(&cond);
         pthread_mutex_unlock(&mut);
     }
@@ -143,7 +143,7 @@ public:
 private:
     QueueFile(Base* data, int fd)
         : head(data)
-        , fd(fd) 
+        , fd(fd)
     { }
 
     Base* head;
@@ -207,7 +207,7 @@ public:
 
         int first = std::min(len, this->cap-this->pos);
         memcpy(this->mem+this->pos, buf, first);
-        memcpy(this->mem, buf+first, std::max(0, len-first)); 
+        memcpy(this->mem, buf+first, std::max(0, len-first));
         this->pos = (this->pos+len)%this->cap;
 
         this->header->inc_size(len);
