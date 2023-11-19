@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include "queue.h"
 
@@ -18,6 +19,11 @@ extern "C" {
 
 std::string get_file_name(const std::string& prefix, const std::string& suffix) {
     return prefix + "_" + suffix;
+}
+
+void wait(pid_t pid) {
+    int r;
+    waitpid(pid, &r, 0);
 }
 
 template<typename Base>
@@ -61,6 +67,7 @@ void test_push_pop_fork(void** state) {
         QueueReader<Base> qr(qf);
         qr.pop(buf, 4);
         assert_string_equal(buf, "abc");
+        wait(pid);
     }
 }
 
@@ -82,6 +89,7 @@ void test_push_pop_fork_attach(void** state) {
         QueueReader<Base> qr(qf);
         qr.pop(buf, 4);
         assert_string_equal(buf, "abc");
+        wait(pid);
     }
 }
 
@@ -110,6 +118,7 @@ void test_push_pop_fork_read_fixed(void** state) {
             qr.pop(rbuf, sizeof(rbuf));
             assert_true(memcmp(buf, rbuf, sizeof(buf)) == 0);
         }
+        wait(pid);
     }
 }
 
@@ -161,6 +170,7 @@ void test_push_pop_fork_read_random(void** state) {
             }
             total_size -= size;
         }
+        wait(pid);
     }
 }
 

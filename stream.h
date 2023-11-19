@@ -163,7 +163,7 @@ private:
                 .iov_base = (void*)buf,
                 .iov_len = (size_t)chunk_size
             });
-            p += len;
+            p += chunk_size;
             len -= chunk_size;
         }
     }
