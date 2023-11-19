@@ -1,7 +1,5 @@
-#include <algorithm>
 #include <string.h>
-#include <assert.h>
-#include <atomic>
+#include <vector>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -115,6 +113,57 @@ void test_push_pop_fork_read_fixed(void** state) {
     }
 }
 
+uint32_t rand_(uint32_t* seed) {
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    return *seed;
+}
+
+template<typename Base>
+void test_push_pop_fork_read_random(void** state) {
+    auto fn = get_file_name("test_push_pop_fork_read_random", typeid(Base).name());
+    char buf[1024];
+    {
+        QueueFile<Base>::create(fn.c_str(), 1024);
+    }
+    int fd = ::open(fn.c_str(), O_RDWR);
+    std::vector<int> wsizes;
+    uint32_t seed = 1;
+    uint64_t total_size = 0;
+    for (int i = 0; i < 10000; i++) {
+        auto size = rand_(&seed) % 1000+24;
+        wsizes.push_back(size);
+        total_size += size;
+    }
+    pid_t pid = fork();
+    auto qf = QueueFile<Base>::open(fd);
+    if (pid == 0) {
+        uint32_t seed = 1;
+        QueueWriter<Base> qw(qf);
+        char k = 0;
+        for (auto size : wsizes) {
+            for (int j = 0; j < size; j++) {
+                buf[j] = k++;
+            }
+            qw.push(buf, size);
+        }
+        exit(0);
+    } else {
+        uint32_t seed = 31337;
+        QueueReader<Base> qr(qf);
+        char rbuf[1024];
+        char k = 0;
+        while (total_size != 0) {
+            auto size = qr.pop_any(rbuf, sizeof(rbuf));
+            for (int j = 0; j < size; j++) {
+                assert_true(rbuf[j] == k++);
+            }
+            total_size -= size;
+        }
+    }
+}
+
 int main() {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_push_pop<QueueBaseLockFree>),
@@ -127,6 +176,8 @@ int main() {
         cmocka_unit_test(test_push_pop_fork_attach<QueueBase>),
         cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBaseLockFree>),
         cmocka_unit_test(test_push_pop_fork_read_fixed<QueueBase>),
+        //cmocka_unit_test(test_push_pop_fork_read_random<QueueBaseLockFree>),
+        cmocka_unit_test(test_push_pop_fork_read_random<QueueBase>),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

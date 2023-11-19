@@ -24,10 +24,12 @@ struct QueueBaseLockFree {
         size = 0;
     }
 
-    void wait_read(int len) {
-        while (size.load(std::memory_order_relaxed) < len) {
+    int wait_read(int len) {
+        int cur_size;
+        while ((cur_size = size.load(std::memory_order_relaxed)) < len) {
             std::this_thread::yield();
         }
+        return cur_size;
     }
 
     void wait_write(int len) {
@@ -67,12 +69,14 @@ struct QueueBase {
         pthread_condattr_destroy(&cattr);
     }
 
-    void wait_read(int len) {
+    int wait_read(int len) {
+        int cur_size;
         pthread_mutex_lock(&mut);
-        while (size < len) {
+        while ((cur_size = size) < len) {
             pthread_cond_wait(&cond, &mut);
         }
         pthread_mutex_unlock(&mut);
+        return cur_size;
     }
 
     void wait_write(int len) {
@@ -189,8 +193,8 @@ public:
     }
 
     int pop_any(char* buf, int len) {
-        this->header->wait_read(1);
-        len = std::min(this->header->size.load(), len);
+        int size = this->header->wait_read(1);
+        len = std::min(size, len);
         pop(buf, len);
         return len;
     }
