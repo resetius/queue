@@ -114,6 +114,7 @@ private:
     int fd;
 };
 
+#ifdef __linux__
 // naive version of vmsplice
 class VmsplicedOutputStream: public OutputStream {
 public:
@@ -165,4 +166,4 @@ private:
     std::vector<Buf> bufs;
     int fd;
 };
-
+#endif

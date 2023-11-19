@@ -93,6 +93,7 @@ void spawn_pipe() {
     }
 }
 
+#ifdef __linux__
 template<size_t size>
 void spawn_vmsplice() {
     int p[2];
@@ -112,7 +113,7 @@ void spawn_vmsplice() {
         kill(child, 9);
     }
 }
-
+#endif
 
 int main() {
     spawn<1024, QueueBaseLockFree>();
@@ -136,12 +137,15 @@ int main() {
     spawn_pipe<16384>();
     spawn_pipe<32768>();
 
+#ifdef __linux__
     spawn_vmsplice<1024>();
     spawn_vmsplice<2048>();
     spawn_vmsplice<4096>();
     spawn_vmsplice<8192>();
     spawn_vmsplice<16384>();
     spawn_vmsplice<32768>();
+#endif
 
     return 0;
 }
+
